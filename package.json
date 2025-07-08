@@ -1,23 +1,25 @@
 {
-  "name": "hockey-seo-analyzer",
+  "name": "college-seo-railway",
   "version": "1.0.0",
-  "description": "Minor League Hockey SEO Gap Analyzer with DataForSEO integration",
+  "description": "College Sports SEO Gap Analyzer with AI-optimized DataForSEO integration for athletic departments",
   "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "echo 'No build step required'",
-    "test": "node --experimental-modules test.js"
+    "build": "echo 'No build step required'"
   },
   "keywords": [
     "seo",
-    "hockey",
+    "college-sports",
     "analytics",
     "dataforseo",
-    "serp"
+    "serp",
+    "athletics",
+    "revenue-protection",
+    "ticket-resellers"
   ],
-  "author": "Hockey SEO Tools",
+  "author": "Mikemm064",
   "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
@@ -31,5 +33,13 @@
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=8.0.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mikemm064/college-seo-railway"
+  },
+  "bugs": {
+    "url": "https://github.com/Mikemm064/college-seo-railway/issues"
+  },
+  "homepage": "https://github.com/Mikemm064/college-seo-railway#readme"
 }
