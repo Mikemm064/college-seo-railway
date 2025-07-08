@@ -39,20 +39,26 @@ if (!fs.existsSync(publicDir)) {
 }
 app.use(express.static(publicDir));
 
-// Validate environment
+// FIXED: Don't crash on missing credentials - warn instead
+let credentialsAvailable = false;
 if (!process.env.DATAFORSEO_LOGIN || !process.env.DATAFORSEO_PASSWORD) {
-    console.error('❌ Missing DataForSEO credentials');
-    process.exit(1);
+    console.warn('⚠️ DataForSEO credentials missing - API features will be limited');
+    console.log('📝 Set DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD environment variables');
+    credentialsAvailable = false;
+} else {
+    console.log('✅ DataForSEO credentials loaded successfully');
+    credentialsAvailable = true;
 }
 
 const DATAFORSEO_CONFIG = {
     baseUrl: 'https://api.dataforseo.com/v3',
-    login: process.env.DATAFORSEO_LOGIN,
-    password: process.env.DATAFORSEO_PASSWORD,
+    login: process.env.DATAFORSEO_LOGIN || 'demo-login',
+    password: process.env.DATAFORSEO_PASSWORD || 'demo-password',
     timeout: 30000,
-    // NEW: AI optimization settings
+    // AI optimization settings
     useAiOptimized: process.env.USE_AI_OPTIMIZED !== 'false', // Default to true
-    aiOptimizedSuffix: '.ai' // Append to endpoints for AI-optimized responses
+    aiOptimizedSuffix: '.ai', // Append to endpoints for AI-optimized responses
+    credentialsAvailable
 };
 
 // COLLEGE SPORTS KEYWORDS - High competition opportunities
@@ -136,15 +142,21 @@ async function enforceRateLimit() {
     lastApiCall = Date.now();
 }
 
-// UPDATED: AI-optimized API calls
+// AI-optimized API calls with credentials check
 async function callDataForSEOAPI(endpoint, data, useAiOptimized = DATAFORSEO_CONFIG.useAiOptimized) {
+    // Return null if credentials not available
+    if (!DATAFORSEO_CONFIG.credentialsAvailable) {
+        console.log(`⚠️ Skipping API call - credentials not available`);
+        return null;
+    }
+    
     await enforceRateLimit();
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), DATAFORSEO_CONFIG.timeout);
     
     try {
-        // NEW: Add .ai suffix for AI-optimized responses
+        // Add .ai suffix for AI-optimized responses
         const finalEndpoint = useAiOptimized ? 
             endpoint + DATAFORSEO_CONFIG.aiOptimizedSuffix : 
             endpoint;
@@ -175,7 +187,7 @@ async function callDataForSEOAPI(endpoint, data, useAiOptimized = DATAFORSEO_CON
         clearTimeout(timeoutId);
         console.error(`❌ API Failed:`, error.message);
         
-        // NEW: Fallback to standard API if AI-optimized fails
+        // Fallback to standard API if AI-optimized fails
         if (useAiOptimized && error.message.includes('404')) {
             console.log(`🔄 AI-optimized endpoint not available, falling back to standard`);
             return await callDataForSEOAPI(endpoint, data, false);
@@ -185,7 +197,7 @@ async function callDataForSEOAPI(endpoint, data, useAiOptimized = DATAFORSEO_CON
     }
 }
 
-// UPDATED: SERP data with AI optimization
+// SERP data with AI optimization
 async function getSERPData(keyword, useAiOptimized = true) {
     if (!keyword?.trim()) return null;
     
@@ -199,7 +211,7 @@ async function getSERPData(keyword, useAiOptimized = true) {
 
     const result = await callDataForSEOAPI('/serp/google/organic/live/advanced', data, useAiOptimized);
     
-    // NEW: Log data size reduction if AI-optimized
+    // Log data size reduction if AI-optimized
     if (result && useAiOptimized) {
         const responseSize = JSON.stringify(result).length;
         console.log(`📊 AI-optimized response size: ${(responseSize / 1024).toFixed(1)}KB`);
@@ -208,7 +220,7 @@ async function getSERPData(keyword, useAiOptimized = true) {
     return result;
 }
 
-// NEW: Keyword difficulty analysis with AI optimization
+// Keyword difficulty analysis with AI optimization
 async function getKeywordDifficulty(keywords) {
     if (!keywords?.length) return null;
     
@@ -232,7 +244,7 @@ async function getKeywordDifficulty(keywords) {
     return null;
 }
 
-// NEW: Search volume data with AI optimization
+// Search volume data with AI optimization
 async function getSearchVolumeData(keywords) {
     if (!keywords?.length) return null;
     
@@ -297,7 +309,7 @@ function isCollegeTeamSite(domain, teamName) {
     return false;
 }
 
-// UPDATED: Enhanced college sports gap analysis with real keyword data
+// Enhanced college sports gap analysis with real keyword data
 function analyzeCollegeSportsGap(serpData, teamName, keyword, keywordMetrics = null) {
     console.log(`🏈 College Sports Gap Analysis: "${keyword}"`);
     
@@ -356,13 +368,13 @@ function categorizeCollegeCompetitor(domain) {
     return 'Other';
 }
 
-// UPDATED: Enhanced gap analysis with keyword difficulty
+// Enhanced gap analysis with keyword difficulty
 function analyzeCollegeGap(keyword, teamRank, competitors, teamSites, keywordMetrics = null) {
     let hasGap = false;
     let gapReason = '';
     let opportunity = 4;
     
-    // NEW: Factor in keyword difficulty from real data
+    // Factor in keyword difficulty from real data
     if (keywordMetrics) {
         const difficulty = keywordMetrics.keyword_difficulty || 0;
         const searchVolume = keywordMetrics.search_volume || 0;
@@ -443,7 +455,7 @@ function analyzeCollegeGap(keyword, teamRank, competitors, teamSites, keywordMet
         teamSites,
         revenueImpact: calculateCollegeRevenueImpact(keyword, ticketResellers),
         isRealData: true,
-        keywordMetrics // NEW: Include real keyword data
+        keywordMetrics
     };
 }
 
@@ -467,13 +479,13 @@ function calculateCollegeRevenueImpact(keyword, ticketResellers) {
     return 'LOW-MEDIUM: Brand awareness and fan engagement value';
 }
 
-// UPDATED: Enhanced fallback with keyword metrics
+// Enhanced fallback with keyword metrics
 function createCollegeFallbackGap(keyword, teamName, keywordMetrics = null) {
     // College sports should have more gaps than minor league hockey
     const hasGap = Math.random() > 0.3; // 70% chance of gap
     let opportunity = hasGap ? 6 + Math.floor(Math.random() * 3) : 4 + Math.floor(Math.random() * 2);
     
-    // NEW: Adjust opportunity based on real keyword metrics if available
+    // Adjust opportunity based on real keyword metrics if available
     if (keywordMetrics) {
         const difficulty = keywordMetrics.keyword_difficulty || 0;
         const searchVolume = keywordMetrics.search_volume || 0;
@@ -493,7 +505,7 @@ function createCollegeFallbackGap(keyword, teamName, keywordMetrics = null) {
         competitors: getSimulatedCollegeCompetitors(keyword),
         revenueImpact: calculateCollegeRevenueImpact(keyword, []),
         isRealData: false,
-        keywordMetrics // NEW: Include available keyword data
+        keywordMetrics
     };
 }
 
@@ -553,7 +565,7 @@ function getLLMStrategy(keyword) {
     return 'Use conversational tone with natural language answers optimized for voice search';
 }
 
-// UPDATED: Use real search volume when available
+// Use real search volume when available
 function getSearchVolume(keyword, keywordMetrics = null) {
     if (keywordMetrics?.search_volume) {
         return keywordMetrics.search_volume;
@@ -606,13 +618,17 @@ app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'OK',
         dataforseo: {
-            configured: !!(DATAFORSEO_CONFIG.login && DATAFORSEO_CONFIG.password),
+            configured: DATAFORSEO_CONFIG.credentialsAvailable,
             aiOptimized: DATAFORSEO_CONFIG.useAiOptimized
+        },
+        server: {
+            port: PORT,
+            environment: process.env.NODE_ENV || 'development'
         }
     });
 });
 
-// UPDATED: Enhanced analysis with AI-optimized DataForSEO APIs
+// Enhanced analysis with AI-optimized DataForSEO APIs
 app.post('/api/analyze', async (req, res) => {
     const startTime = Date.now();
     
@@ -628,11 +644,12 @@ app.post('/api/analyze', async (req, res) => {
 
         const cleanTeamName = teamName.trim().substring(0, 50);
         console.log(`\n🏈 ENHANCED COLLEGE SPORTS GAP ANALYSIS: "${cleanTeamName}" (${sport})`);
+        console.log(`🔑 Credentials available: ${DATAFORSEO_CONFIG.credentialsAvailable}`);
         
         const keywords = generateKeywords(cleanTeamName, sport);
         console.log(`📝 Analyzing ${keywords.length} keywords for gaps with AI-optimized data`);
         
-        // NEW: Get keyword metrics (search volume, difficulty) with AI optimization
+        // Get keyword metrics (search volume, difficulty) with AI optimization
         console.log(`\n📊 Fetching keyword metrics for enhanced analysis...`);
         const keywordDifficultyData = await getKeywordDifficulty(keywords.slice(0, 10));
         const searchVolumeData = await getSearchVolumeData(keywords.slice(0, 10));
@@ -691,11 +708,11 @@ app.post('/api/analyze', async (req, res) => {
                         competitors: gapAnalysis.competitors,
                         contentSuggestion: getContentSuggestion(keyword, cleanTeamName),
                         llmStrategy: getLLMStrategy(keyword),
-                        searchVolume: getSearchVolume(keyword, keywordMetrics), // NEW: Use real volume when available
+                        searchVolume: getSearchVolume(keyword, keywordMetrics), // Use real volume when available
                         isRealData: gapAnalysis.isRealData,
                         gapReason: gapAnalysis.gapReason,
                         revenueImpact: gapAnalysis.revenueImpact,
-                        // NEW: Include keyword difficulty for better insights
+                        // Include keyword difficulty for better insights
                         keywordDifficulty: keywordMetrics?.keyword_difficulty || null
                     });
                     console.log(`✅ GAP FOUND: ${gapAnalysis.gapReason}`);
@@ -751,7 +768,7 @@ app.post('/api/analyze', async (req, res) => {
             console.log(`✅ EXCELLENT: Team performing well on all analyzed keywords!`);
         }
         
-        // NEW: Calculate token savings estimate
+        // Calculate token savings estimate
         const estimatedTokenSavings = DATAFORSEO_CONFIG.useAiOptimized ? 
             Math.floor(realDataCount * 150) : 0; // Rough estimate of tokens saved per API call
         
@@ -766,22 +783,24 @@ app.post('/api/analyze', async (req, res) => {
                 totalSearchVolume: gapAnalyses.reduce((sum, a) => sum + a.searchVolume, 0),
                 topGapTypes: [...new Set(gapAnalyses.map(a => a.gapType))],
                 realDataPoints: realDataCount,
-                // NEW: Enhanced analytics
+                // Enhanced analytics
                 averageKeywordDifficulty: gapAnalyses
                     .filter(a => a.keywordDifficulty !== null)
                     .reduce((sum, a, _, arr) => sum + a.keywordDifficulty / arr.length, 0),
                 aiOptimizedCalls: DATAFORSEO_CONFIG.useAiOptimized ? realDataCount : 0,
-                estimatedTokenSavings
+                estimatedTokenSavings,
+                credentialsStatus: DATAFORSEO_CONFIG.credentialsAvailable ? 'Available' : 'Limited Demo Mode'
             },
             meta: {
                 processingTimeMs: processingTime,
                 dataQuality: realDataCount > 0 ? 'Live Gap Analysis with AI-optimized APIs' : 'Simulated Gap Analysis',
                 keywordsAnalyzed: keywordsToAnalyze.length,
                 gapsFound: gapAnalyses.length,
-                // NEW: AI optimization details
+                // AI optimization details
                 aiOptimized: DATAFORSEO_CONFIG.useAiOptimized,
                 keywordMetricsAvailable: keywordMetricsMap.size,
-                apiEfficiency: estimatedTokenSavings > 0 ? `${estimatedTokenSavings} tokens saved` : 'Standard API calls'
+                apiEfficiency: estimatedTokenSavings > 0 ? `${estimatedTokenSavings} tokens saved` : 'Standard API calls',
+                credentialsConfigured: DATAFORSEO_CONFIG.credentialsAvailable
             }
         });
         
@@ -789,12 +808,12 @@ app.post('/api/analyze', async (req, res) => {
         console.error('❌ Analysis error:', error);
         res.status(500).json({ 
             success: false,
-            error: 'Analysis failed'
+            error: 'Analysis failed: ' + error.message
         });
     }
 });
 
-// NEW: Endpoint to toggle AI optimization
+// Endpoint to toggle AI optimization
 app.post('/api/toggle-ai-optimization', (req, res) => {
     const { enabled } = req.body;
     DATAFORSEO_CONFIG.useAiOptimized = enabled !== false;
@@ -808,7 +827,7 @@ app.post('/api/toggle-ai-optimization', (req, res) => {
     });
 });
 
-// NEW: Endpoint to get keyword insights with AI-optimized data
+// Endpoint to get keyword insights with AI-optimized data
 app.post('/api/keyword-insights', async (req, res) => {
     try {
         const { keywords } = req.body;
@@ -858,6 +877,7 @@ app.post('/api/keyword-insights', async (req, res) => {
             meta: {
                 keywordsAnalyzed: keywords.length,
                 aiOptimized: DATAFORSEO_CONFIG.useAiOptimized,
+                credentialsAvailable: DATAFORSEO_CONFIG.credentialsAvailable,
                 dataAvailable: {
                     difficulty: difficultyData ? difficultyData.length : 0,
                     volume: volumeData ? volumeData.length : 0
@@ -869,29 +889,85 @@ app.post('/api/keyword-insights', async (req, res) => {
         console.error('❌ Keyword insights error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to get keyword insights'
+            error: 'Failed to get keyword insights: ' + error.message
         });
     }
 });
 
+// FIXED: Robust root route handler
 app.get('/', (req, res) => {
     const indexPath = path.join(__dirname, 'public', 'index.html');
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
-        res.status(404).send(`
-            <h1>College Sports SEO Gap Analyzer</h1>
-            <p>Frontend not found. Place index.html in public/ directory.</p>
-            <h2>AI-Optimized DataForSEO Integration</h2>
-            <p>Status: ${DATAFORSEO_CONFIG.useAiOptimized ? 'ENABLED' : 'DISABLED'}</p>
+        // Instead of 404, return a working status page
+        res.send(`
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>College Sports SEO Gap Analyzer</title>
+                <style>
+                    body { 
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+                        background: #1a1a1a; 
+                        color: #fff; 
+                        padding: 40px; 
+                        text-align: center; 
+                    }
+                    .status { background: #0a5a0a; padding: 20px; border-radius: 8px; margin: 20px 0; }
+                    .api-check { background: #333; padding: 15px; border-radius: 6px; margin: 10px 0; }
+                    .success { color: #00ff00; }
+                    .warning { color: #ffaa00; }
+                    .error { color: #ff6666; }
+                    a { color: #00aaff; text-decoration: none; }
+                    a:hover { text-decoration: underline; }
+                </style>
+            </head>
+            <body>
+                <h1>🏈 College Sports SEO Gap Analyzer</h1>
+                <div class="status">
+                    <h2>✅ Server Running Successfully</h2>
+                    <p>Port: ${PORT} | Environment: ${process.env.NODE_ENV || 'development'}</p>
+                </div>
+                
+                <div class="api-check">
+                    <h3>🔧 System Status</h3>
+                    <p class="${DATAFORSEO_CONFIG.credentialsAvailable ? 'success' : 'warning'}">
+                        DataForSEO Credentials: ${DATAFORSEO_CONFIG.credentialsAvailable ? '✅ Configured' : '⚠️ Missing'}
+                    </p>
+                    <p class="success">AI Optimization: ${DATAFORSEO_CONFIG.useAiOptimized ? '🤖 Enabled' : '📊 Standard'}</p>
+                    <p class="success">Frontend: ⚠️ Upload index.html to public/ directory</p>
+                </div>
+                
+                <div class="api-check">
+                    <h3>🧪 API Testing</h3>
+                    <p><a href="/api/health">Health Check</a> | Test server status</p>
+                    <p>Ready for deployment and testing!</p>
+                </div>
+                
+                <div class="api-check">
+                    <h3>🚀 Next Steps</h3>
+                    <ol style="text-align: left; max-width: 600px; margin: 0 auto;">
+                        <li>Upload index.html to public/ directory</li>
+                        <li>${DATAFORSEO_CONFIG.credentialsAvailable ? 'Test with a college team' : 'Configure DataForSEO credentials in environment variables'}</li>
+                        <li>Monitor logs for real-time analysis</li>
+                    </ol>
+                </div>
+            </body>
+            </html>
         `);
     }
 });
 
+// FIXED: Proper server binding for Railway
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🏈 College Sports SEO Gap Analyzer`);
     console.log(`🎯 Analyzing ticket reseller competition and fan experience gaps`);
+    console.log(`🔑 DataForSEO credentials: ${DATAFORSEO_CONFIG.credentialsAvailable ? '✅ CONFIGURED' : '⚠️ MISSING'}`);
     console.log(`🤖 AI-optimized DataForSEO: ${DATAFORSEO_CONFIG.useAiOptimized ? 'ENABLED' : 'DISABLED'}`);
     console.log(`💰 Token optimization: ${DATAFORSEO_CONFIG.useAiOptimized ? 'ACTIVE' : 'INACTIVE'}`);
-    console.log(`🚀 Running on port ${PORT}`);
+    console.log(`🚀 Running on port ${PORT} (bound to 0.0.0.0)`);
+    console.log(`🌐 Ready for Railway deployment!`);
 });
