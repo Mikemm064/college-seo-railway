@@ -843,3 +843,210 @@
                         </div>
                     </div>
                 </div>
+            `;
+
+            document.getElementById('results').innerHTML = html;
+        }
+
+        async function runAnalysis(teamName, sport, email) {
+            const btn = document.querySelector('.btn-primary');
+            const btnText = btn.querySelector('.btn-text');
+            const spinner = btn.querySelector('.loading-spinner');
+            
+            btn.disabled = true;
+            spinner.style.display = 'inline-block';
+            btnText.textContent = 'Initializing Analysis...';
+            
+            showLoading(`🔍 Analyzing SEO gaps for ${teamName} ${sport}...`);
+
+            try {
+                btnText.textContent = 'Fetching Live SERP Data...';
+                
+                const response = await fetch(`${API_BASE_URL}/analyze`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        teamName: teamName.trim(),
+                        sport,
+                        email: email.trim()
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => null);
+                    throw new Error(errorData?.error || `Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Analysis failed');
+                }
+
+                btnText.textContent = 'Processing Competitive Intelligence...';
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                displayResults(data);
+                
+                const hasRealData = data.summary?.realDataPoints > 0;
+                const dataType = hasRealData ? 'live SERP data' : 'competitive estimates';
+                const gapsFound = data.analyses?.length || 0;
+                
+                if (gapsFound > 0) {
+                    showSuccess(`✅ Analysis complete! Found ${gapsFound} SEO opportunities using ${dataType}. Report insights displayed below.`);
+                } else {
+                    showSuccess(`✅ Analysis complete! ${teamName} shows excellent SEO performance. No immediate gaps detected.`);
+                }
+                
+            } catch (error) {
+                console.error('Analysis error:', error);
+                showError(`❌ Analysis failed: ${error.message}. Please try again or contact support.`);
+            } finally {
+                btn.disabled = false;
+                spinner.style.display = 'none';
+                btnText.textContent = 'Analyze SEO Gaps';
+            }
+        }
+
+        function requestFullAnalysis(teamName, sport) {
+            const message = `Thank you for your interest in comprehensive SEO intelligence for ${teamName}!
+
+Our athletic department specialists will contact you within 24 hours to discuss:
+• Complete keyword gap analysis (${sport} + general athletics)
+• Detailed ticket reseller competition mapping
+• Revenue impact projections and ROI analysis
+• Strategic content roadmap with priority rankings
+• Implementation timeline with quick wins
+
+We'll provide enterprise-grade insights using live DataForSEO data to help ${teamName} recapture search traffic and protect direct revenue streams.`;
+            
+            alert(message);
+        }
+
+        function scheduleConsultation(teamName) {
+            const message = `Schedule a strategic consultation for ${teamName}:
+
+Our college sports SEO specialists will provide:
+✅ 30-minute strategy session
+✅ Custom competitive analysis
+✅ Revenue protection roadmap
+✅ Implementation timeline
+✅ ROI projections
+
+We'll contact you within 4 hours to schedule at your convenience.`;
+
+            alert(message);
+        }
+
+        // Health check function
+        async function checkAPIHealth() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                
+                if (!response.ok) {
+                    console.error(`❌ API Health Check Failed: ${response.status} ${response.statusText}`);
+                    return;
+                }
+                
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    console.error('❌ API returned non-JSON response. Server may not be running properly.');
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log('✅ API Health:', data);
+                
+                if (!data.dataforseo?.configured) {
+                    console.warn('⚠️ DataForSEO not properly configured');
+                } else {
+                    console.log('✅ DataForSEO configured correctly');
+                }
+            } catch (error) {
+                console.error('❌ API Health Check Failed:', error.message);
+                console.log('💡 This usually means the backend server is not running or not accessible');
+            }
+        }
+
+        // Form handling with enhanced validation
+        document.getElementById('analysisForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const teamName = document.getElementById('teamName').value.trim();
+            const sport = document.getElementById('sport').value;
+            const email = document.getElementById('email').value.trim();
+
+            // Clear previous messages
+            const existingMessages = document.querySelectorAll('.error, .success');
+            existingMessages.forEach(msg => msg.remove());
+
+            // Validation
+            if (!teamName) {
+                showError('❌ Please enter a university team name');
+                return;
+            }
+
+            if (teamName.length < 3) {
+                showError('❌ Team name must be at least 3 characters');
+                return;
+            }
+
+            if (!email) {
+                showError('❌ Please enter an email address');
+                return;
+            }
+
+            // Email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showError('❌ Please enter a valid email address');
+                return;
+            }
+
+            await runAnalysis(teamName, sport, email);
+        });
+
+        // Check API health on page load
+        window.addEventListener('load', () => {
+            checkAPIHealth();
+        });
+
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                document.getElementById('analysisForm').dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // Add smooth scrolling to results
+        function scrollToResults() {
+            const resultsElement = document.getElementById('results');
+            if (resultsElement && resultsElement.innerHTML.trim()) {
+                resultsElement.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            }
+        }
+
+        // Auto-scroll to results when they appear
+        const resultsObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList' && mutation.target.id === 'results') {
+                    const results = mutation.target;
+                    if (results.innerHTML.trim() && !results.innerHTML.includes('loading')) {
+                        setTimeout(scrollToResults, 500);
+                    }
+                }
+            });
+        });
+
+        resultsObserver.observe(document.getElementById('results'), {
+            childList: true,
+            subtree: true
+        });
+    </script>
+</body>
+</html>
